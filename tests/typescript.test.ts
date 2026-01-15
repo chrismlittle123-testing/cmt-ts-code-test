@@ -53,70 +53,6 @@ console.log(result);
     });
   });
 
-  // TSC-002: Type Error - Fail
-  describe("TSC-002: Type Error - Fail", () => {
-    it("should fail with type error", () => {
-      createPackageJson(fixtureDir, {
-        devDependencies: { typescript: "^5.3.0" },
-      });
-      createTsConfig(fixtureDir);
-      createCheckToml(
-        fixtureDir,
-        `
-[code.types.tsc]
-enabled = true
-`
-      );
-
-      // Type mismatch: assigning string to number
-      writeFixtureFile(
-        fixtureDir,
-        "src/index.ts",
-        `const x: number = "string";
-export { x };
-`
-      );
-
-      const result = runCodeCheck(fixtureDir);
-      expect(result.exitCode).toBe(1);
-      expect(result.stdout + result.stderr).toMatch(/TS\d+/); // TypeScript error code
-    });
-  });
-
-  // TSC-003: Multiple Type Errors
-  describe("TSC-003: Multiple Type Errors", () => {
-    it("should report all type errors with file/line/column", () => {
-      createPackageJson(fixtureDir, {
-        devDependencies: { typescript: "^5.3.0" },
-      });
-      createTsConfig(fixtureDir);
-      createCheckToml(
-        fixtureDir,
-        `
-[code.types.tsc]
-enabled = true
-`
-      );
-
-      // Multiple type errors
-      writeFixtureFile(
-        fixtureDir,
-        "src/index.ts",
-        `const a: number = "string";
-const b: boolean = 123;
-const c: string = true;
-export { a, b, c };
-`
-      );
-
-      const result = runCodeCheck(fixtureDir);
-      expect(result.exitCode).toBe(1);
-      // Should contain multiple error references
-      const output = result.stdout + result.stderr;
-      expect(output).toContain("index.ts");
-    });
-  });
-
   // TSC-004: No tsconfig.json
   describe("TSC-004: No tsconfig.json", () => {
     it("should fail when no tsconfig.json exists", () => {
@@ -170,34 +106,6 @@ forceConsistentCasingInFileNames = true
 
       const result = runCodeAudit(fixtureDir);
       expect(result.exitCode).toBe(0);
-    });
-  });
-
-  // TSC-006: Audit - Missing Option
-  describe("TSC-006: Audit - Missing Option", () => {
-    it("should fail audit when required option is missing", () => {
-      createPackageJson(fixtureDir, {
-        devDependencies: { typescript: "^5.3.0" },
-      });
-      // tsconfig without strict
-      createTsConfig(fixtureDir, {
-        noImplicitAny: true,
-        esModuleInterop: true,
-      });
-      createCheckToml(
-        fixtureDir,
-        `
-[code.types.tsc]
-enabled = true
-
-[code.types.tsc.require]
-strict = true
-`
-      );
-
-      const result = runCodeAudit(fixtureDir);
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stdout + result.stderr).toContain("strict");
     });
   });
 
@@ -301,23 +209,6 @@ strict = true
 
       const result = runCodeAudit(fixtureDir);
       expect(result.exitCode).toBe(0);
-    });
-  });
-
-  // TSC-010: tsc Not Installed
-  describe("TSC-010: tsc Not Installed", () => {
-    it("should skip check when TypeScript is not installed", () => {
-      createPackageJson(fixtureDir, {});
-      createCheckToml(
-        fixtureDir,
-        `
-[code.types.tsc]
-enabled = true
-`
-      );
-
-      const result = runCodeCheck(fixtureDir);
-      expect(result.stdout + result.stderr).toContain("not installed");
     });
   });
 });

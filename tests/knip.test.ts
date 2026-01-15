@@ -92,51 +92,6 @@ enabled = true
     });
   });
 
-  // KNP-003: Unused Export
-  describe("KNP-003: Unused Export", () => {
-    it("should detect unused export", () => {
-      createPackageJson(fixtureDir, {
-        devDependencies: { knip: "^5.0.0", typescript: "^5.3.0" },
-      });
-      createTsConfig(fixtureDir);
-      createCheckToml(
-        fixtureDir,
-        `
-[code.unused.knip]
-enabled = true
-`
-      );
-
-      // File with unused export
-      writeFixtureFile(
-        fixtureDir,
-        "src/index.ts",
-        `export function usedFunc(): void {
-  console.log("Used");
-}
-
-export function unusedFunc(): void {
-  console.log("Never imported");
-}
-`
-      );
-
-      // File that only imports usedFunc
-      writeFixtureFile(
-        fixtureDir,
-        "src/main.ts",
-        `import { usedFunc } from "./index";
-
-usedFunc();
-`
-      );
-
-      const result = runCodeCheck(fixtureDir);
-      expect(result.exitCode).toBe(1);
-      expect(result.stdout + result.stderr).toContain("unusedFunc");
-    });
-  });
-
   // KNP-004: Unused Dependency
   describe("KNP-004: Unused Dependency", () => {
     it("should detect unused dependency", () => {

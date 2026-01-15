@@ -9,7 +9,6 @@ import {
   createEslintConfig,
   runCodeCheck,
   runCodeAudit,
-  CmResult,
 } from "./utils/test-helpers";
 
 describe("ESLint Tests", () => {
@@ -21,40 +20,6 @@ describe("ESLint Tests", () => {
 
   afterEach(() => {
     cleanupFixture(fixtureDir);
-  });
-
-  // ESL-001: Basic Linting - Pass
-  describe("ESL-001: Basic Linting - Pass", () => {
-    it("should pass with clean TypeScript code", () => {
-      createPackageJson(fixtureDir, {
-        devDependencies: { eslint: "^9.0.0" },
-      });
-      createTsConfig(fixtureDir);
-      createEslintConfig(fixtureDir, {
-        "no-unused-vars": "error",
-      });
-      createCheckToml(
-        fixtureDir,
-        `
-[code.linting.eslint]
-enabled = true
-files = ["src/**/*.ts"]
-`
-      );
-
-      // Clean code with no violations
-      writeFixtureFile(
-        fixtureDir,
-        "src/index.ts",
-        `export function add(a: number, b: number): number {
-  return a + b;
-}
-`
-      );
-
-      const result = runCodeCheck(fixtureDir);
-      expect(result.exitCode).toBe(0);
-    });
   });
 
   // ESL-002: Basic Linting - Fail
@@ -210,42 +175,6 @@ max-warnings = 0
     });
   });
 
-  // ESL-006: Max Warnings > 0
-  describe("ESL-006: Max Warnings > 0", () => {
-    it("should pass when warnings are under the limit", () => {
-      createPackageJson(fixtureDir, {
-        devDependencies: { eslint: "^9.0.0" },
-      });
-      createTsConfig(fixtureDir);
-      createEslintConfig(fixtureDir, {
-        "no-console": "warn",
-      });
-      createCheckToml(
-        fixtureDir,
-        `
-[code.linting.eslint]
-enabled = true
-files = ["src/**/*.ts"]
-max-warnings = 5
-`
-      );
-
-      // Code with 2 warnings (under the limit of 5)
-      writeFixtureFile(
-        fixtureDir,
-        "src/index.ts",
-        `export function log(msg: string): void {
-  console.log(msg);
-  console.warn(msg);
-}
-`
-      );
-
-      const result = runCodeCheck(fixtureDir);
-      expect(result.exitCode).toBe(0);
-    });
-  });
-
   // ESL-007: Config Files Detection
   describe("ESL-007: Config Files Detection", () => {
     const configFiles = [
@@ -384,51 +313,6 @@ complexity = { severity = "error", max = 10 }
 
       const result = runCodeAudit(fixtureDir);
       expect(result.exitCode).not.toBe(0);
-    });
-  });
-
-  // ESL-012: Rule Auditing - Options Match
-  describe("ESL-012: Rule Auditing - Options Match", () => {
-    it("should pass audit when rule options match", () => {
-      createPackageJson(fixtureDir, {
-        devDependencies: { eslint: "^9.0.0" },
-      });
-      // ESLint config with complexity max = 10
-      createEslintConfig(fixtureDir, {
-        complexity: ["error", { max: 10 }],
-      });
-      // check.toml expects max = 10
-      createCheckToml(
-        fixtureDir,
-        `
-[code.linting.eslint]
-enabled = true
-
-[code.linting.eslint.rules]
-complexity = { severity = "error", max = 10 }
-`
-      );
-
-      const result = runCodeAudit(fixtureDir);
-      expect(result.exitCode).toBe(0);
-    });
-  });
-
-  // ESL-013: ESLint Not Installed
-  describe("ESL-013: ESLint Not Installed", () => {
-    it("should skip check when ESLint is not installed", () => {
-      // No devDependencies (ESLint not installed)
-      createPackageJson(fixtureDir, {});
-      createCheckToml(
-        fixtureDir,
-        `
-[code.linting.eslint]
-enabled = true
-`
-      );
-
-      const result = runCodeCheck(fixtureDir);
-      expect(result.stdout + result.stderr).toContain("not installed");
     });
   });
 

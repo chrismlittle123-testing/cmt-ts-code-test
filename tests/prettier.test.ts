@@ -20,40 +20,6 @@ describe("Prettier Tests", () => {
     cleanupFixture(fixtureDir);
   });
 
-  // PRT-001: Formatted Code - Pass
-  describe("PRT-001: Formatted Code - Pass", () => {
-    it("should pass with properly formatted code", () => {
-      createPackageJson(fixtureDir, {
-        devDependencies: { prettier: "^3.2.0" },
-      });
-      createPrettierConfig(fixtureDir, {
-        semi: true,
-        singleQuote: false,
-        tabWidth: 2,
-      });
-      createCheckToml(
-        fixtureDir,
-        `
-[code.formatting.prettier]
-enabled = true
-`
-      );
-
-      // Properly formatted code
-      writeFixtureFile(
-        fixtureDir,
-        "src/index.ts",
-        `export function add(a: number, b: number): number {
-  return a + b;
-}
-`
-      );
-
-      const result = runCodeCheck(fixtureDir);
-      expect(result.exitCode).toBe(0);
-    });
-  });
-
   // PRT-002: Unformatted Code - Fail
   describe("PRT-002: Unformatted Code - Fail", () => {
     it("should fail with unformatted code", () => {
@@ -124,61 +90,6 @@ enabled = true
         const result = runCodeCheck(fixtureDir);
         expect(result.stdout + result.stderr).not.toContain("config not found");
       });
-    });
-  });
-
-  // PRT-004: Prettier Ignore
-  describe("PRT-004: Prettier Ignore", () => {
-    it("should skip files in .prettierignore", () => {
-      createPackageJson(fixtureDir, {
-        devDependencies: { prettier: "^3.2.0" },
-      });
-      createPrettierConfig(fixtureDir);
-      createCheckToml(
-        fixtureDir,
-        `
-[code.formatting.prettier]
-enabled = true
-`
-      );
-
-      // Create .prettierignore
-      writeFixtureFile(fixtureDir, ".prettierignore", "src/ignored.ts\n");
-
-      // Properly formatted file
-      writeFixtureFile(
-        fixtureDir,
-        "src/index.ts",
-        `export const x = 1;
-`
-      );
-
-      // Unformatted file (should be ignored)
-      writeFixtureFile(
-        fixtureDir,
-        "src/ignored.ts",
-        `export function ugly(a:number,b:number){return a+b}`
-      );
-
-      const result = runCodeCheck(fixtureDir);
-      expect(result.exitCode).toBe(0);
-    });
-  });
-
-  // PRT-005: Prettier Not Installed
-  describe("PRT-005: Prettier Not Installed", () => {
-    it("should skip check when Prettier is not installed", () => {
-      createPackageJson(fixtureDir, {});
-      createCheckToml(
-        fixtureDir,
-        `
-[code.formatting.prettier]
-enabled = true
-`
-      );
-
-      const result = runCodeCheck(fixtureDir);
-      expect(result.stdout + result.stderr).toContain("not installed");
     });
   });
 

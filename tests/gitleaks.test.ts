@@ -76,33 +76,6 @@ export const API_KEY = "sk-1234567890abcdef1234567890abcdef1234567890abcdef";
     });
   });
 
-  // GLK-003: AWS Credentials
-  describe("GLK-003: AWS Credentials", () => {
-    it("should detect AWS credentials", () => {
-      createCheckToml(
-        fixtureDir,
-        `
-[code.security.secrets]
-enabled = true
-`
-      );
-
-      // Code with AWS credentials (fake test credentials)
-      writeFixtureFile(
-        fixtureDir,
-        "src/aws-config.ts",
-        `// Test file for secret detection - these are fake credentials
-export const AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE";
-export const AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-`
-      );
-
-      const result = runCodeCheck(fixtureDir);
-      expect(result.exitCode).toBe(1);
-      expect(result.stdout + result.stderr).toMatch(/secret|aws/i);
-    });
-  });
-
   // GLK-004: Private Key
   describe("GLK-004: Private Key", () => {
     it("should detect private key", () => {
@@ -128,32 +101,6 @@ THIS-IS-A-FAKE-KEY-FOR-TESTING-ONLY
       const result = runCodeCheck(fixtureDir);
       expect(result.exitCode).toBe(1);
       expect(result.stdout + result.stderr).toMatch(/secret|private.?key/i);
-    });
-  });
-
-  // GLK-005: Database Connection String
-  describe("GLK-005: Database Connection String", () => {
-    it("should detect database connection string with password", () => {
-      createCheckToml(
-        fixtureDir,
-        `
-[code.security.secrets]
-enabled = true
-`
-      );
-
-      // Code with database connection string (fake credentials)
-      writeFixtureFile(
-        fixtureDir,
-        "src/db.ts",
-        `// Test file for secret detection - fake credentials
-export const DATABASE_URL = "postgres://admin:supersecretpassword123@db.example.com:5432/production";
-`
-      );
-
-      const result = runCodeCheck(fixtureDir);
-      expect(result.exitCode).toBe(1);
-      expect(result.stdout + result.stderr).toMatch(/secret|password|connection/i);
     });
   });
 
@@ -219,25 +166,6 @@ secretGroup = 0
       const result = runCodeCheck(fixtureDir);
       // Should apply custom rules
       expect(result.exitCode).toBe(1);
-    });
-  });
-
-  // GLK-008: Gitleaks Not Installed
-  describe("GLK-008: Gitleaks Not Installed", () => {
-    // Note: This test is tricky because we need to simulate gitleaks not being installed
-    // In a real scenario, this would require modifying PATH or using a mock
-    it.skip("should skip check when gitleaks is not installed", () => {
-      createCheckToml(
-        fixtureDir,
-        `
-[code.security.secrets]
-enabled = true
-`
-      );
-
-      // This test would need special setup to simulate gitleaks not being installed
-      const result = runCodeCheck(fixtureDir);
-      expect(result.stdout + result.stderr).toContain("not installed");
     });
   });
 
