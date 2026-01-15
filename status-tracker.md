@@ -20,8 +20,14 @@ Last Updated: 2026-01-15
 | Integration | 4 | 4 | 4 | 0 | 0 |
 | **TOTAL** | **107** | **106** | **74** | **32** | **1** |
 
-**Test Run:** 2026-01-15 with check-my-toolkit v0.18.0
-**Results:** 100 passed, 32 failed, 1 skipped (133 total test cases including parameterized tests)
+**Test Run:** 2026-01-15 with check-my-toolkit v0.28.0
+**Results:** 97 passed, 35 failed, 1 skipped (133 total test cases including parameterized tests)
+
+### Analysis Summary
+- **Real bugs in cm:** 1 (missing `allow_dynamic_routes` config option)
+- **Test implementation issues:** 6 (tests need fixes, not cm)
+
+See `issues.md` for detailed breakdown.
 
 ---
 

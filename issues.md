@@ -4,137 +4,111 @@ Last Updated: 2026-01-15
 
 ## Open Issues
 
-### Blockers
+### Real Bugs in check-my-toolkit
 
-### ISSUE-001: GLK-008 Test Requires Special Setup
-**Test ID(s):** GLK-008
-**Priority:** Low
-**Status:** Open
-**Date Opened:** 2026-01-15
-
-**Description:**
-The GLK-008 test case (Gitleaks Not Installed) requires special test setup to simulate gitleaks not being installed on the system. This would require either modifying the PATH environment variable during the test or using a mock.
-
-**Expected Behavior:**
-When gitleaks is not installed, `cm code check` should skip the secrets check with a "not installed" message.
-
-**Actual Behavior:**
-Test is skipped with `it.skip()` because simulating "not installed" state is non-trivial.
-
-**Workaround:**
-Test can be manually run on a system without gitleaks installed.
-
----
-
-### High Priority
-
-### ISSUE-002: "Not Installed" vs "Config Not Found" Behavior
-**Test ID(s):** ESL-013, PRT-005, TSC-010
-**Priority:** High
-**Status:** Open
-**Date Opened:** 2026-01-15
-
-**Description:**
-Tests expect `cm` to report "not installed" when tools (ESLint, Prettier, TypeScript) are not in package.json. Instead, `cm` reports "Config not found" error.
-
-**Expected Behavior:**
-When a tool is not installed (not in package.json), the check should be skipped with a "not installed" message.
-
-**Actual Behavior:**
-The tool reports "Config not found" and fails with exit code 1.
-
-**Affected Tests:**
-- ESL-013: ESLint Not Installed
-- PRT-005: Prettier Not Installed
-- TSC-010: tsc Not Installed
-
----
-
-### ISSUE-003: Secrets Detection Not Triggering for Some Patterns
-**Test ID(s):** GLK-002, GLK-003, GLK-004, GLK-005, GLK-007, GLK-009
-**Priority:** High
-**Status:** Open
-**Date Opened:** 2026-01-15
-
-**Description:**
-Gitleaks secret detection tests are passing (exit code 0) when they should fail. The fake secrets in test files are not being detected.
-
-**Expected Behavior:**
-Hardcoded API keys, AWS credentials, private keys, and database connection strings should be detected as secrets.
-
-**Actual Behavior:**
-Tests pass with exit code 0, no secrets detected.
-
-**Possible Causes:**
-- Gitleaks may not be installed on the system
-- The `code.security.secrets` section may need additional configuration
-- Gitleaks rules may not match the test patterns
-
----
-
-### Medium Priority
-
-### ISSUE-004: Naming Convention Tests Failing
-**Test ID(s):** NAM-001 through NAM-021 (multiple)
+### ISSUE-001: Missing `allow_dynamic_routes` Option for Naming Conventions
+**Test ID(s):** NAM-010, NAM-011, NAM-012, NAM-013, NAM-014
 **Priority:** Medium
 **Status:** Open
 **Date Opened:** 2026-01-15
 
 **Description:**
-Multiple naming convention tests are failing. The `cm` tool may have different behavior than expected for file/folder naming validation.
+The TEST-PLAN.md specifies an `allow_dynamic_routes` option for `[[code.naming.rules]]` that should allow Next.js/Remix dynamic route folders like `[id]`, `[...slug]`, `[[...slug]]`, `(group)`, and `@slot`. However, this option is not implemented in check-my-toolkit.
 
-**Affected Tests:**
-- NAM-001: Kebab-case Files - Pass
-- NAM-002: Kebab-case Files - Fail
-- NAM-006: Folder Naming - Pass
-- NAM-007: Folder Naming - Fail
-- And others
+**Expected Behavior (per TEST-PLAN.md):**
+```toml
+[[code.naming.rules]]
+extensions = ["tsx"]
+file_case = "kebab-case"
+folder_case = "kebab-case"
+allow_dynamic_routes = true
+```
+Should allow folders named `[id]`, `[...slug]`, `(marketing)`, `@sidebar`, etc.
 
----
+**Actual Behavior:**
+```
+Config error: Invalid check.toml configuration:
+  - code.naming.rules.0: Unrecognized key(s) in object: 'allow_dynamic_routes'
+```
 
-### ISSUE-005: Disable Comments Detection Behavior
-**Test ID(s):** DIS-001 through DIS-012 (multiple)
-**Priority:** Medium
-**Status:** Open
-**Date Opened:** 2026-01-15
+**Evidence:**
+The `cm schema config` output shows naming rules only support: `extensions`, `file_case`, `folder_case`, `exclude`. No `allow_dynamic_routes` property exists.
 
-**Description:**
-Disable comments detection tests have mixed results. Some comments are detected while others are not.
-
----
-
-### ISSUE-006: Test Validation Behavior
-**Test ID(s):** TST-001 through TST-006
-**Priority:** Medium
-**Status:** Open
-**Date Opened:** 2026-01-15
-
-**Description:**
-Test file validation tests are failing. The `code.tests` configuration may behave differently than expected.
+**Source Code Reference:**
+Based on exploration of chrismlittle123/check-my-toolkit, the naming.ts implementation does have logic for dynamic route detection (lines 134-167), but the config schema doesn't expose the `allow_dynamic_routes` option to users.
 
 ---
 
-### Low Priority
+## Test Implementation Issues (Not Bugs in cm)
 
-### ISSUE-007: ESLint Rule Options Auditing
-**Test ID(s):** ESL-012
-**Priority:** Low
-**Status:** Open
-**Date Opened:** 2026-01-15
+The following are issues with the test suite, not bugs in check-my-toolkit:
 
-**Description:**
-ESL-012 (Rule Auditing - Options Match) fails even when options should match. The complexity rule options format may differ between test expectation and actual ESLint config.
+### TEST-ISSUE-001: ESLint Tests Use Invalid Flat Config
+**Affected Tests:** ESL-001, ESL-006, ESL-012
+**Problem:** Tests create ESLint flat configs without:
+1. `"type": "module"` in package.json
+2. `files` pattern in eslint.config.js (required for ESLint 9+)
+
+**Fix Required:** Update `createEslintConfig` helper to create valid ESLint 9 flat configs.
 
 ---
 
-### ISSUE-008: Knip Unused Export Detection
-**Test ID(s):** KNP-003
-**Priority:** Low
-**Status:** Open
-**Date Opened:** 2026-01-15
+### TEST-ISSUE-002: "Not Installed" Tests Are Invalid
+**Affected Tests:** ESL-013, PRT-005, TSC-010
+**Problem:** Tests expect cm to report "not installed" when a tool isn't in package.json. However, cm uses `npx` which auto-downloads tools, so tools don't need to be locally installed.
 
-**Description:**
-KNP-003 (Unused Export) test passes when it should fail. Knip may not be detecting unused exports in the test scenario, possibly due to how entry points are configured.
+When config is missing (not the tool), cm correctly reports "Config not found" - this is expected behavior.
+
+**Fix Required:** Remove or redefine these tests. The "not installed" scenario only applies when npx fails to find/install the tool.
+
+---
+
+### TEST-ISSUE-003: TypeScript Tests Don't Actually Run tsc
+**Affected Tests:** TSC-002, TSC-003
+**Problem:** Test fixtures don't have TypeScript installed (no npm install). The cm tool correctly skips with "TypeScript not installed" because npx can't find tsc in the temp directory context.
+
+**Fix Required:** Either:
+1. Run `npm install typescript` in fixtures, or
+2. Mock the tsc execution, or
+3. Accept that these are integration tests requiring a real TypeScript installation
+
+---
+
+### TEST-ISSUE-004: createTsConfig Helper Has Wrong Defaults
+**Affected Tests:** TSC-006
+**Problem:** The `createTsConfig` helper always includes `strict: true` as a default. When testing "missing option" scenario, the test passes `{ noImplicitAny: true }` but `strict: true` is still included due to spread operator order.
+
+```ts
+// Current (buggy):
+const tsconfig = {
+  compilerOptions: {
+    strict: true,  // Default
+    ...compilerOptions,  // Doesn't remove strict
+  }
+}
+```
+
+**Fix Required:** Update `createTsConfig` to not include defaults, or use explicit option removal.
+
+---
+
+### TEST-ISSUE-005: Gitleaks Tests May Use Non-Matching Patterns
+**Affected Tests:** GLK-003, GLK-005
+**Problem:** Gitleaks detected the generic-api-key pattern but not AWS credentials or DB connection strings. This may be because:
+1. The test patterns don't match gitleaks' built-in rules
+2. Gitleaks rules have changed in newer versions
+
+**Verification:** Running `cm code check` manually with AWS credentials in a file DOES detect them when the pattern matches gitleaks' expectations.
+
+**Fix Required:** Update test fixtures to use patterns that match current gitleaks rules.
+
+---
+
+### TEST-ISSUE-006: Naming Tests Missing Required Properties
+**Affected Tests:** NAM-003, NAM-004, NAM-005, NAM-008, NAM-009
+**Problem:** The schema requires `extensions`, `file_case`, AND `folder_case` for each naming rule. Some tests may only provide partial configs.
+
+**Fix Required:** Ensure all naming rule configs include all three required properties.
 
 ---
 
@@ -144,43 +118,11 @@ KNP-003 (Unused Export) test passes when it should fail. Knip may not be detecti
 
 ---
 
-## Issue Template
+## Summary
 
-When adding new issues, use this format:
+| Type | Count |
+|------|-------|
+| Real Bugs in cm | 1 |
+| Test Implementation Issues | 6 |
 
-```markdown
-### ISSUE-XXX: [Title]
-**Test ID(s):** [Related test IDs, e.g., ESL-001, ESL-002]
-**Priority:** Blocker | High | Medium | Low
-**Status:** Open | In Progress | Resolved
-**Date Opened:** YYYY-MM-DD
-**Date Resolved:** YYYY-MM-DD (if resolved)
-
-**Description:**
-[Detailed description of the issue]
-
-**Expected Behavior:**
-[What should happen]
-
-**Actual Behavior:**
-[What actually happens]
-
-**Steps to Reproduce:**
-1. [Step 1]
-2. [Step 2]
-
-**Workaround:**
-[If any workaround exists]
-
-**Resolution:**
-[How it was fixed, if resolved]
-```
-
----
-
-## Notes
-
-- Issues are categorized by priority: Blocker > High > Medium > Low
-- Blockers prevent further test implementation
-- Reference test IDs from TEST-PLAN.md when applicable
-- Move resolved issues to the "Resolved Issues" section with resolution notes
+The single real bug is the missing `allow_dynamic_routes` configuration option for naming conventions. All other failing tests are due to test implementation issues that need to be fixed in the test suite.
