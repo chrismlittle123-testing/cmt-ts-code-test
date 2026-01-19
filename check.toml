@@ -1,11 +1,16 @@
 [process.branches]
 enabled = true
-# Allows: main, develop, feature/*, bugfix/*, hotfix/*, release/*
 pattern = "^(main|develop|(feature|bugfix|hotfix|release)/.+)$"
 
 [process.commits]
 enabled = true
-# Conventional commit types
 types = ["feat", "fix", "docs", "style", "refactor", "test", "chore"]
 require_scope = false
 max_subject_length = 72
+
+[process.codeowners]
+enabled = true
+
+[[process.codeowners.rules]]
+pattern = "*"
+owners = ["@default-team"]
