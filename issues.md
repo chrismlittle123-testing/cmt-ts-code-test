@@ -1,71 +1,142 @@
 # check-my-toolkit Bug Report
 
-Bugs found in features added since v1.3.0 (covering v1.3.1 bug fixes and v1.4.0 new features).
+Bugs found in features added since v1.4.0 (covering v1.5.0 through v1.6.0).
 
 ---
 
 ## Confirmed Bugs
 
-### Issue 1: No Validation for Invalid Glob Patterns
+### Issue 1: CI Commands Crashes When `if: true` (Boolean) Is Used
 
-**GitHub Issue:** https://github.com/chrismlittle123/check-my-toolkit/issues/136
+**File:** `src/process/tools/ci.ts`
 
-**File:** `src/process/tools/forbidden-files.ts`
+**Description:** The `isUnconditionalExpression` function calls `.trim()` on the condition value without checking if it's a string first. When a YAML workflow uses `if: true` (boolean literal), the code crashes with "expression.trim is not a function".
 
-**Description:** The `findForbiddenFiles` method accepts any string as a pattern but silently swallows errors from invalid glob patterns. If an invalid pattern is provided (e.g., malformed regex-like strings), the catch block returns an empty array instead of reporting a configuration error.
+**Reproduction:**
+```yaml
+# .github/workflows/ci.yml
+name: CI
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm test
+        if: true
+```
+
+```toml
+# check.toml
+[process.ci]
+enabled = true
+
+[process.ci.commands]
+"ci.yml" = ["npm test"]
+```
+
+**Expected:** `if: true` should be treated as unconditional and the check should pass.
+
+**Actual:** Error: `Tool error: expression.trim is not a function`
+
+**Root Cause:** In `ci.ts:78-83`, the code assumes `expression` is always a string:
+```javascript
+isUnconditionalExpression(expression) {
+    if (!expression) {
+        return true;
+    }
+    const expr = expression.trim().toLowerCase();  // BUG: .trim() on boolean
+    return ["true", "success()", "always()"].includes(expr);
+}
+```
+
+**Severity:** High - Causes check to fail with runtime error
+
+---
+
+### Issue 2: Invalid Glob Patterns Not Validated in Config
+
+**File:** `src/config/schema.ts`
+
+**Description:** The `globPatternSchema` validation in schema.ts uses `minimatch.makeRe()` to validate patterns, but the pattern `[invalid-pattern` (with unbalanced bracket) is accepted as valid when it should be rejected.
 
 **Reproduction:**
 ```toml
+# check.toml
 [process.forbidden_files]
 enabled = true
-files = ["[invalid-pattern"]  # Unbalanced bracket
+files = ["[invalid-pattern"]
 ```
 
-**Expected:** A configuration validation error should be reported.
+```bash
+$ cm validate config
+✓ Valid: check.toml
+```
 
-**Actual:** The invalid pattern is silently ignored and no files are found.
+**Expected:** Configuration validation should fail with an error about invalid glob pattern.
 
----
+**Actual:** Configuration validation passes, and the invalid pattern is silently ignored at runtime.
 
-### Issue 2: Hardcoded Ignore Patterns Cannot Be Customized
+**Root Cause:** The `minimatch.makeRe()` function may not throw for all invalid patterns, or the try/catch is too broad. The pattern `[invalid-pattern` might be interpreted as a character class and not rejected.
 
-**GitHub Issue:** https://github.com/chrismlittle123/check-my-toolkit/issues/137
-
-**File:** `src/process/tools/forbidden-files.ts`
-
-**Description:** The ignore patterns `["**/node_modules/**", "**/.git/**"]` are hardcoded and cannot be customized or extended by users.
-
-**Impact:** Users cannot:
-- Add additional ignore patterns (e.g., `dist/`, `build/`, `.venv/`)
-- Remove the default ignores if they intentionally want to check those directories
+**Severity:** Medium - Invalid configuration silently accepted
 
 ---
 
-### Issue 3: Block Comments Not Handled in Disable-Comments Detection
+### Issue 3: CLI Returns Exit Code 1 Instead of 2 for Invalid Arguments
 
-**GitHub Issue:** https://github.com/chrismlittle123/check-my-toolkit/issues/138
+**File:** `src/cli.ts`
 
-**File:** `src/code/tools/disable-comments.ts`
-
-**Description:** The `findCommentStart` function only detects `//` style line comments for JavaScript/TypeScript. It does not handle `/* */` block comments at all.
+**Description:** The changelog for v1.5.7 claims "CLI now returns proper exit code 2 (CONFIG_ERROR) for invalid arguments", but the CLI still returns exit code 1 when an invalid format argument is provided.
 
 **Reproduction:**
-```typescript
-/* eslint-disable no-unused-vars */
-const x = 1;
-/* eslint-enable */
+```bash
+$ cm code check --format invalid
+error: option '-f, --format <format>' argument 'invalid' is invalid. Allowed choices are text, json.
+$ echo $?
+1
 ```
 
-**Expected:** The `eslint-disable` pattern should be detected inside the block comment.
+**Expected:** Exit code 2 (CONFIG_ERROR) for invalid arguments.
 
-**Actual:** Block comment disable directives are not detected because only `//` markers are recognized.
+**Actual:** Exit code 1.
+
+**Root Cause:** Looking at `cli.ts:28-37`, the `exitOverride` handler only intercepts `commander.invalidArgument` and `commander.optionMissingArgument` error codes. However, the `choices()` validation from Commander may use a different error code (`commander.invalidOptionArgumentValue` or similar) that isn't being caught.
+
+**Severity:** Low - Incorrect exit code for invalid arguments
 
 ---
 
 ## Summary
 
-| # | Feature | Severity | Category | GitHub Issue |
-|---|---------|----------|----------|--------------|
-| 1 | Invalid glob patterns silently ignored | Medium | forbidden_files | [#136](https://github.com/chrismlittle123/check-my-toolkit/issues/136) |
-| 2 | Hardcoded ignore patterns | Medium | forbidden_files | [#137](https://github.com/chrismlittle123/check-my-toolkit/issues/137) |
-| 3 | Block comments not detected | High | disable-comments | [#138](https://github.com/chrismlittle123/check-my-toolkit/issues/138) |
+| # | Feature | Severity | Category | Fixed In |
+|---|---------|----------|----------|----------|
+| 1 | CI commands crashes on boolean `if: true` | High | CI commands (v1.6.0) | - |
+| 2 | Invalid glob patterns accepted in config | Medium | Schema validation (v1.5.5) | - |
+| 3 | CLI exit code 1 instead of 2 for invalid args | Low | CLI (v1.5.7) | - |
+
+---
+
+## Test Results Summary
+
+**Total Tests Written:** 222
+**Tests Passing:** 216
+**Tests Failing:** 6
+
+The 6 failing tests include:
+- 3 tests that discovered the bugs documented above
+- 2 tests for the glob pattern validation bug (in different test files)
+- 1 test with incorrect expectation about JSON Schema structure (not a bug)
+
+---
+
+## Notes
+
+### Not Bugs (Test Expectation Issues)
+
+1. **NAM-005 (PascalCase naming):** The test failed because "src" folder doesn't match PascalCase. This is correct behavior - the test expectation was wrong. Users need to add exclude patterns for common folders like "src".
+
+2. **SCH-025 (Schema output):** The test expected `properties` at the root level, but the schema uses `$ref` with `definitions`. This is a valid JSON Schema structure, not a bug.
+
